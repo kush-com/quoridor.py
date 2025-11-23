@@ -1,0 +1,5 @@
+Algorithm call summary:
+- BreadthFirstSearch: 5833
+- BuilderBot.computeFencePlacingImpacts: 14
+- BuilderBot.getFencePlacingWithTheHighestImpact: 14
+- RunnerBot.moveAlongTheShortestPath: 12

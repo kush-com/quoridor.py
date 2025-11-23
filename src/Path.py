@@ -165,8 +165,51 @@ class Path:
                     previousMoves[validMove.toCoord] = (validMoveScore, validMove)
         return None
 
-    def AStar():
+    def AStar(board, startCoord, endCoords, moveScore = lambda move, step: 1, ignorePawns = False, heuristic = None):
         """
         Path finding using A* algorithm
         """
-        pass
+        global TRACE
+        TRACE.setdefault("Path.AStar", 0)
+        TRACE["Path.AStar"] += 1
+
+        if heuristic is None:
+            heuristic = Path.ManhattanDistanceMulti
+
+        root = PawnMove(None, startCoord)
+
+        # previousMoves maps coord -> (g_score, move)
+        previousMoves = {startCoord: (0, root)}
+        # nextMoves is a list of tuples: (f_score, step, g_score, move)
+        start_h = heuristic(startCoord, endCoords)
+        nextMoves = [(start_h, 0, 0, root)]
+        validPawnMoves = board.storedValidPawnMovesIgnoringPawns if ignorePawns else board.storedValidPawnMoves
+
+        # While nodes remain to be visited
+        while nextMoves:
+            # Order by f_score
+            sorted(nextMoves, key=lambda nextMove: nextMove[0])
+            (f, step, g, move) = nextMoves.pop(0)
+            # If one of the targets is reached
+            for endCoord in endCoords:
+                if move.toCoord == endCoord:
+                    # Build backward path, then reverse it
+                    pathMoves = [move]
+                    while move.fromCoord is not None:
+                        move = previousMoves[move.fromCoord][1]
+                        pathMoves.append(move)
+                    pathMoves.reverse()
+                    return Path(pathMoves[1:])
+
+            # Add neighbors
+            validMoves = validPawnMoves[move.toCoord]
+            # Sort neighbors to promote neighbors near targets
+            sorted(validMoves, key=lambda validMove: Path.ManhattanDistanceMulti(validMove.toCoord, endCoords))
+            for validMove in validMoves:
+                tentative_g = g + moveScore(validMove, step + 1)
+                prev = previousMoves.get(validMove.toCoord)
+                if prev is None or tentative_g < prev[0]:
+                    previousMoves[validMove.toCoord] = (tentative_g, validMove)
+                    f_score = tentative_g + heuristic(validMove.toCoord, endCoords)
+                    nextMoves.append((f_score, step + 1, tentative_g, validMove))
+        return None

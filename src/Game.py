@@ -16,6 +16,11 @@ from src.player.Human        import *
 from src.action.PawnMove     import *
 from src.action.FencePlacing import *
 from src.Path                import *
+from src.exception.PlayerPathObstructedException import *
+from src.AlgorithmStats import AlgorithmStats
+
+# Install algorithm call wrappers (collect stats)
+AlgorithmStats.install()
 
 
 
@@ -101,7 +106,36 @@ class Game:
                         print("Player %s won" % player.name)
                         player.score += 1
                 elif isinstance(action, FencePlacing):
-                    player.placeFence(action.coord, action.direction)
+                    try:
+                        # Check if fence placement would block an opponent
+                        if self.board.isFencePlacingBlocking(action):
+                            warningMsg = f"INVALID move: You are blocking the opponent!"
+                            print(warningMsg)
+                            if INTERFACE and isinstance(player, Human):
+                                # Display warning to human player and skip this turn
+                                from lib.graphics import Text, Point
+                                warningText = Text(Point(self.board.width // 2, 50), warningMsg)
+                                warningText.setFill("red")
+                                warningText.setSize(16)
+                                warningText.draw(self.board.window)
+                                import time as time_module
+                                time_module.sleep(2)
+                                warningText.undraw()
+                            # Skip turn for human; bots will handle with fallback logic
+                        else:
+                            player.placeFence(action.coord, action.direction)
+                    except PlayerPathObstructedException as e:
+                        warningMsg = f"INVALID move: {e.message}"
+                        print(warningMsg)
+                        if INTERFACE and isinstance(player, Human):
+                            from lib.graphics import Text, Point
+                            warningText = Text(Point(self.board.width // 2, 50), warningMsg)
+                            warningText.setFill("red")
+                            warningText.setSize(16)
+                            warningText.draw(self.board.window)
+                            import time as time_module
+                            time_module.sleep(2)
+                            warningText.undraw()
                 elif isinstance(action, Quit):
                     finished = True
                     print("Player %s quitted" % player.name)
@@ -123,5 +157,10 @@ class Game:
         """
         Called at the end in order to close the window.
         """
+        # Emit algorithm stats report before closing the window
+        try:
+            AlgorithmStats.report()
+        except Exception:
+            pass
         if INTERFACE:
             self.board.window.close()
